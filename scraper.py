@@ -13,6 +13,14 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BASE_URL = "https://api.mangadex.org"
 RATE_LIMIT_DELAY = 2  # Add delay between requests to prevent bans
+BATCH_SIZE = 50  # Process manga in batches to avoid hitting GitHub Actions limits
+
+def fetch_existing_manga_ids():
+    """Fetch existing manga IDs from Supabase to avoid duplicates."""
+    response = supabase.table("manga").select("id").execute()
+    if response and response.data:
+        return {entry["id"] for entry in response.data}
+    return set()
 
 def fetch_all_manga():
     url = f"{BASE_URL}/manga?limit=100"
@@ -27,7 +35,6 @@ def fetch_all_manga():
         url = data.get("links", {}).get("next")
         time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limiting
     return manga_list
-
 
 def fetch_manga_details(manga_id):
     url = f"{BASE_URL}/manga/{manga_id}?includes[]=cover_art&includes[]=author&includes[]=artist&includes[]=publisher"
@@ -108,20 +115,23 @@ def fetch_manga_details(manga_id):
     time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limiting
     return manga_data
 
-
 def insert_into_supabase(manga_data):
     response = supabase.table("manga").upsert(manga_data).execute()
     print(f"Inserted into Supabase: {response}")
     time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limiting
 
-
 def main():
+    existing_manga_ids = fetch_existing_manga_ids()
     manga_ids = fetch_all_manga()
-    for manga_id in manga_ids:
-        manga_data = fetch_manga_details(manga_id)
-        if manga_data:
-            insert_into_supabase(manga_data)
-
+    new_manga_ids = [m_id for m_id in manga_ids if m_id not in existing_manga_ids]
+    
+    for i in range(0, len(new_manga_ids), BATCH_SIZE):
+        batch = new_manga_ids[i:i + BATCH_SIZE]
+        for manga_id in batch:
+            manga_data = fetch_manga_details(manga_id)
+            if manga_data:
+                insert_into_supabase(manga_data)
+        time.sleep(60)  # Prevent hitting GitHub Actions time limit
 
 if __name__ == "__main__":
     main()
