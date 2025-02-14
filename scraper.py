@@ -1,5 +1,7 @@
+
 import requests
 import json
+import time
 from datetime import datetime
 from supabase import create_client
 
@@ -10,7 +12,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BASE_URL = "https://api.mangadex.org"
-
+RATE_LIMIT_DELAY = 2  # Add delay between requests to prevent bans
 
 def fetch_all_manga():
     url = f"{BASE_URL}/manga?limit=100"
@@ -23,6 +25,7 @@ def fetch_all_manga():
         data = response.json()
         manga_list.extend([manga["id"] for manga in data.get("data", [])])
         url = data.get("links", {}).get("next")
+        time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limiting
     return manga_list
 
 
@@ -57,7 +60,14 @@ def fetch_manga_details(manga_id):
     stats_url = f"{BASE_URL}/statistics/manga/{manga_id}"
     stats_response = requests.get(stats_url)
     stats_data = stats_response.json().get("statistics", {}).get(manga_id, {})
+    
+    # Ensure average_rating is a valid decimal
     average_rating = stats_data.get("rating", {}).get("average", None)
+    if isinstance(average_rating, (int, float)):
+        average_rating = round(min(max(average_rating, 0), 9.99), 2)  # Ensure within valid range (0-9.99)
+    else:
+        average_rating = None
+    
     follows = stats_data.get("follows", 0)
     views = stats_data.get("views", 0)
 
@@ -94,12 +104,15 @@ def fetch_manga_details(manga_id):
         "chapters": chapters,
         "created_at": datetime.utcnow().isoformat()
     }
+    
+    time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limiting
     return manga_data
 
 
 def insert_into_supabase(manga_data):
     response = supabase.table("manga").upsert(manga_data).execute()
     print(f"Inserted into Supabase: {response}")
+    time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limiting
 
 
 def main():
