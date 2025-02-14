@@ -9,14 +9,21 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# List of MangaDex UUIDs to scrape
-MANGA_UUIDS = [
-    "3fba42cf-2ad6-4c30-a7ab-46cb8149208a",  # Bungou Stray Dogs
-    "f349008f-0896-4ec8-bc37-56733525dfc7",  # Girls' Vampire
-    "bc48be50-2f43-4f98-970a-6e6cda1324f1"   # Kekkon Suru tte Itta yo ne
-]
-
 BASE_URL = "https://api.mangadex.org"
+
+
+def fetch_all_manga():
+    url = f"{BASE_URL}/manga?limit=100"
+    manga_list = []
+    while url:
+        response = requests.get(url)
+        if response.status_code != 200:
+            print("Failed to fetch manga list")
+            break
+        data = response.json()
+        manga_list.extend([manga["id"] for manga in data.get("data", [])])
+        url = data.get("links", {}).get("next")
+    return manga_list
 
 
 def fetch_manga_details(manga_id):
@@ -96,7 +103,8 @@ def insert_into_supabase(manga_data):
 
 
 def main():
-    for manga_id in MANGA_UUIDS:
+    manga_ids = fetch_all_manga()
+    for manga_id in manga_ids:
         manga_data = fetch_manga_details(manga_id)
         if manga_data:
             insert_into_supabase(manga_data)
