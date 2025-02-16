@@ -24,4 +24,4 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run MangaDex Fetcher
-        run: python script.py  # Ensure script.py matches your Python file name
+        run: python scraper.py  # Ensure script.py matches your Python file name
