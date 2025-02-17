@@ -11,8 +11,8 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BASE_URL = "https://api.mangadex.org"
-RATE_LIMIT_DELAY = 5  # Increased delay to reduce ban risk
-BATCH_SIZE = 25  # Reduced batch size to reduce load
+RATE_LIMIT_DELAY = 5  # To prevent getting banned
+BATCH_SIZE = 25  # To reduce load
 MAX_MANGA_PER_RUN = 250  # Limits total manga fetched per run
 
 def fetch_existing_manga_ids():
@@ -23,6 +23,7 @@ def fetch_existing_manga_ids():
     return set()
 
 def fetch_all_manga():
+    """Fetch all manga IDs with pagination."""
     url = f"{BASE_URL}/manga?limit=100"
     manga_list = []
     while url and len(manga_list) < MAX_MANGA_PER_RUN:
@@ -36,7 +37,37 @@ def fetch_all_manga():
         time.sleep(RATE_LIMIT_DELAY)
     return manga_list[:MAX_MANGA_PER_RUN]
 
+def fetch_all_chapters(manga_id):
+    """Fetch all available chapters with pagination."""
+    chapters = []
+    url = f"{BASE_URL}/manga/{manga_id}/feed?order[chapter]=asc&limit=100"
+    
+    while url:
+        response = requests.get(url)
+        if response.status_code != 200:
+            print(f"Failed to fetch chapters for {manga_id}")
+            break
+        
+        data = response.json()
+        for chap in data.get("data", []):
+            chap_attr = chap.get("attributes", {})
+            chapter_title = chap_attr.get("title", "Untitled")  # Default title
+            translated_lang = chap_attr.get("translatedLanguage", "")
+
+            if translated_lang == "en":  # Fetch only English chapters
+                chapters.append({
+                    "chapter_number": chap_attr.get("chapter", "Unknown"),
+                    "title": chapter_title,
+                    "release_date": chap_attr.get("createdAt", "Unknown")
+                })
+
+        url = data.get("links", {}).get("next")  # Get next page link
+        time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limit bans
+    
+    return chapters
+
 def fetch_manga_details(manga_id):
+    """Fetch manga details including title, author, cover, and chapters."""
     url = f"{BASE_URL}/manga/{manga_id}?includes[]=cover_art&includes[]=author&includes[]=artist"
     response = requests.get(url)
     if response.status_code != 200:
@@ -45,7 +76,7 @@ def fetch_manga_details(manga_id):
     
     data = response.json().get("data", {})
     attributes = data.get("attributes", {})
-
+    
     # Extract main details
     title = attributes.get("title", {}).get("en", "Unknown")
     alternative_titles = attributes.get("altTitles", [])
@@ -62,21 +93,8 @@ def fetch_manga_details(manga_id):
     cover = next((rel for rel in data.get("relationships", []) if rel["type"] == "cover_art"), {})
     cover_url = f"https://uploads.mangadex.org/covers/{manga_id}/{cover.get('attributes', {}).get('fileName', '')}"
     
-    # Fetch chapters (limited to first 100 to reduce API load)
-    chapters = []
-    chapter_url = f"{BASE_URL}/manga/{manga_id}/feed?order[chapter]=asc&limit=100"
-    chapter_response = requests.get(chapter_url)
-    if chapter_response.status_code == 200:
-        chapter_data = chapter_response.json().get("data", [])
-        for chap in chapter_data:
-            chap_attr = chap.get("attributes", {})
-            chapter_title = chap_attr.get("title", "")
-            if chapter_title and "en" in chap_attr.get("translatedLanguage", ""):  # Filter only English chapters
-                chapters.append({
-                    "chapter_number": chap_attr.get("chapter", "Unknown"),
-                    "title": chapter_title,
-                    "release_date": chap_attr.get("createdAt", "Unknown")
-                })
+    # Fetch all chapters
+    chapters = fetch_all_chapters(manga_id)
     
     # Add read and buy links
     read_link = f"https://mangadex.org/title/{manga_id}"
@@ -104,6 +122,7 @@ def fetch_manga_details(manga_id):
     return manga_data
 
 def insert_into_supabase(manga_data):
+    """Insert manga details into Supabase."""
     response = supabase.table("manga").upsert(manga_data).execute()
     print(f"Inserted into Supabase: {response}")
     time.sleep(RATE_LIMIT_DELAY)
