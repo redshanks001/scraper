@@ -52,7 +52,7 @@ def fetch_manga_details(manga_id):
     description = attributes.get("description", {}).get("en", "No description available")
     year = attributes.get("year")
     status = attributes.get("status", "Unknown").capitalize()
-    tags = [tag["attributes"]["name"]["en"] for tag in attributes.get("tags", [])]
+    tags = [tag["attributes"]["name"].get("en", "Unknown") for tag in attributes.get("tags", [])]
     
     # Extract relationships
     authors = [rel["attributes"]["name"] for rel in data.get("relationships", []) if rel["type"] == "author"]
@@ -70,11 +70,17 @@ def fetch_manga_details(manga_id):
         chapter_data = chapter_response.json().get("data", [])
         for chap in chapter_data:
             chap_attr = chap.get("attributes", {})
-            chapters.append({
-                "chapter_number": chap_attr.get("chapter", "Unknown"),
-                "title": chap_attr.get("title", "No title"),
-                "release_date": chap_attr.get("createdAt", "Unknown")
-            })
+            chapter_title = chap_attr.get("title", "")
+            if chapter_title and "en" in chap_attr.get("translatedLanguage", ""):  # Filter only English chapters
+                chapters.append({
+                    "chapter_number": chap_attr.get("chapter", "Unknown"),
+                    "title": chapter_title,
+                    "release_date": chap_attr.get("createdAt", "Unknown")
+                })
+    
+    # Add read and buy links
+    read_link = f"https://mangadex.org/title/{manga_id}"
+    buy_link = f"https://www.amazon.com/s?k={title.replace(' ', '+')}+manga"
     
     # Construct manga data
     manga_data = {
@@ -89,6 +95,8 @@ def fetch_manga_details(manga_id):
         "artists": artists,
         "cover_url": cover_url,
         "chapters": chapters,
+        "read_link": read_link,
+        "buy_link": buy_link,
         "created_at": datetime.utcnow().isoformat()
     }
     
