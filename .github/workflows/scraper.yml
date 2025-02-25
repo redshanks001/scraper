@@ -1,11 +1,11 @@
-name: MangaDex Fetcher
+#name: MangaDex Fetcher
 
-on:
-  schedule:
-    - cron: "0 */2 * * *"  # Runs every 2 hours (10 times a day)
-  workflow_dispatch:  # Allows manual triggering
+#on:
+  #schedule:
+ #   - cron: "0 */2 * * *"  # Runs every 2 hours (10 times a day)
+ # workflow_dispatch:  # Allows manual triggering
 
-jobs:
+#jobs:
   fetch_manga:
     runs-on: ubuntu-latest
 
