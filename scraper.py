@@ -25,7 +25,7 @@ def fetch_existing_manga_ids():
 
 def fetch_all_manga():
     """Fetch all manga IDs with pagination."""
-    url = f"{BASE_URL}/manga?limit=100&order[updatedAt]=desc"  # Fetch updated manga
+    url = f"{BASE_URL}/manga?limit=100&order[updatedAt]=desc"  # Adjusted to max allowed limit
     manga_list = []
     
     while url and len(manga_list) < MAX_MANGA_PER_RUN:
@@ -137,9 +137,13 @@ def insert_into_supabase(manga_data, existing_manga_ids):
         print(f"⏭️ Skipping existing manga: {manga_data['title']}")
         return
     
-    response = supabase.table("manga").insert(manga_data).execute()
-    print(f"✅ Inserted into Supabase: {manga_data['title']}")
-    time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limiting
+    response = supabase.table("manga").upsert(manga_data).execute()  # Use upsert instead of insert
+    print(f"✅ Inserted/Updated in Supabase: {manga_data['title']}")
+    
+    # Update existing IDs to prevent duplicate insert attempts
+    existing_manga_ids.add(manga_data["id"])
+    
+    time.sleep(5)  # Prevent rate limit
 
 def main():
     existing_manga_ids = fetch_existing_manga_ids()
