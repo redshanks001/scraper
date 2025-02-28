@@ -12,50 +12,45 @@ headers = {
     "Content-Type": "application/json"
 }
 
-def fetch_manga_from_supabase():
-    """Fetch all manga from Supabase."""
-    url = f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}"
+def fetch_manga_ids_from_supabase():
+    """Fetch only manga IDs from Supabase."""
+    url = f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}?select=id"  # Fetch only 'id'
     response = requests.get(url, headers=headers)
     
     if response.status_code == 200:
-        return response.json()  # List of manga
+        return [manga["id"] for manga in response.json()]  # Extract only IDs
     else:
-        print("❌ Failed to fetch manga from Supabase!")
+        print("❌ Failed to fetch manga IDs from Supabase!")
         return []
 
 def update_manga_cache():
     cache_file = "manga_cache.json"
 
-    # Load existing cache
+    # Load existing cache (as a list)
     try:
         with open(cache_file, "r") as f:
             cache = json.load(f)
+        
+        # Ensure cache is a list, not a dictionary
+        if not isinstance(cache, list):
+            cache = []
     except (FileNotFoundError, json.JSONDecodeError):
-        cache = {}  # Initialize empty dictionary if the file is missing
+        cache = []  # Initialize empty list if the file is missing
 
-    # Fetch manga from Supabase
-    manga_list = fetch_manga_from_supabase()
+    # Fetch manga IDs from Supabase
+    manga_ids = fetch_manga_ids_from_supabase()
 
-    # Check for new manga
-    new_manga_added = False
-    for manga in manga_list:
-        manga_id = str(manga["id"])  # Ensure ID is stored as a string
-        title = manga["title"]
-        last_chapter = manga.get("last_chapter", "Unknown")
+    # Check for new IDs
+    new_ids = [manga_id for manga_id in manga_ids if manga_id not in cache]
 
-        if manga_id not in cache:  # New manga found!
-            print(f"🆕 New manga detected: {title} (ID: {manga_id})")
-            cache[manga_id] = {
-                "title": title,
-                "last_chapter": last_chapter
-            }
-            new_manga_added = True
+    if new_ids:
+        print(f"🆕 New manga IDs detected: {new_ids}")
+        cache.extend(new_ids)  # Append new IDs
 
-    # Save updated cache if new manga were added
-    if new_manga_added:
+        # Save updated cache
         with open(cache_file, "w") as f:
             json.dump(cache, f, indent=4)
         print("✅ manga_cache.json updated!")
 
-# Run the function to check for new manga and update the cache
+# Run the function to check for new manga IDs and update the cache
 update_manga_cache()
