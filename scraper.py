@@ -4,28 +4,29 @@ import time
 from datetime import datetime
 from supabase import create_client
 
-# 🔹 Supabase credentials
-SUPABASE_URL = "https://cbdkiyruretigoldouhf.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNiZGtpeXJ1cmV0aWdvbGRvdWhmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczODU2NDc5OSwiZXhwIjoyMDU0MTQwNzk5fQ.NqeVS9WSjeGYjAM52XRXOS_FTjgE8uyTM4yDmkqSy5I"
+# 🔹 Load config from JSON
+with open("config.json", "r") as config_file:
+    config = json.load(config_file)
+
+SUPABASE_URL = config["SUPABASE_URL"]
+SUPABASE_KEY = config["SUPABASE_KEY"]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # 🔹 MangaDex API
 BASE_URL = "https://api.mangadex.org"
-RATE_LIMIT_DELAY = 5  # Prevent rate limits
-BATCH_SIZE = 25  # Reduce load
-MAX_MANGA_PER_RUN = 1000  # Fetch more manga per run
+RATE_LIMIT_DELAY = 5
+BATCH_SIZE = 25
+MAX_MANGA_PER_RUN = 1000
 
 def fetch_existing_manga_ids():
-    """Fetch existing manga IDs from Supabase to avoid duplicates."""
+    """Fetch existing manga IDs from Supabase."""
     response = supabase.table("manga").select("id").execute()
-    if response and response.data:
-        return {entry["id"] for entry in response.data}
-    return set()
+    return {entry["id"] for entry in response.data} if response and response.data else set()
 
 def fetch_all_manga():
     """Fetch all manga IDs with pagination."""
-    url = f"{BASE_URL}/manga?limit=100&order[updatedAt]=desc"  # Adjusted to max allowed limit
+    url = f"{BASE_URL}/manga?limit=100&order[updatedAt]=desc"
     manga_list = []
     
     while url and len(manga_list) < MAX_MANGA_PER_RUN:
@@ -36,43 +37,35 @@ def fetch_all_manga():
         
         data = response.json()
         manga_list.extend([manga["id"] for manga in data.get("data", [])])
-        
-        # Get next page link
         url = data.get("links", {}).get("next")
+        
         if url:
-            print(f"🔄 Fetching next page: {url}")  # Debugging
-            time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limiting
-        else:
-            print("✅ No more pages left to fetch.")
+            time.sleep(RATE_LIMIT_DELAY)
     
-    return manga_list[:MAX_MANGA_PER_RUN]  # Limit total fetched manga
+    return manga_list[:MAX_MANGA_PER_RUN]
 
 def fetch_all_chapters(manga_id):
-    """Fetch all available chapters with pagination."""
+    """Fetch all available chapters (English only)."""
     chapters = []
     url = f"{BASE_URL}/manga/{manga_id}/feed?order[chapter]=asc&limit=100"
     
     while url:
         response = requests.get(url)
         if response.status_code != 200:
-            print(f"❌ Failed to fetch chapters for {manga_id}")
             break
         
         data = response.json()
         for chap in data.get("data", []):
             chap_attr = chap.get("attributes", {})
-            chapter_title = chap_attr.get("title", "Untitled")  # Default title
-            translated_lang = chap_attr.get("translatedLanguage", "")
-
-            if translated_lang == "en":  # Fetch only English chapters
+            if chap_attr.get("translatedLanguage") == "en":
                 chapters.append({
                     "chapter_number": chap_attr.get("chapter", "Unknown"),
-                    "title": chapter_title,
+                    "title": chap_attr.get("title", "Untitled"),
                     "release_date": chap_attr.get("createdAt", "Unknown")
                 })
 
-        url = data.get("links", {}).get("next")  # Get next page link
-        time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limit bans
+        url = data.get("links", {}).get("next")
+        time.sleep(RATE_LIMIT_DELAY)
     
     return chapters
 
@@ -81,13 +74,11 @@ def fetch_manga_details(manga_id):
     url = f"{BASE_URL}/manga/{manga_id}?includes[]=cover_art&includes[]=author&includes[]=artist"
     response = requests.get(url)
     if response.status_code != 200:
-        print(f"❌ Failed to fetch manga data for {manga_id}")
         return None
     
     data = response.json().get("data", {})
     attributes = data.get("attributes", {})
     
-    # Extract main details
     title = attributes.get("title", {}).get("en", "Unknown")
     alternative_titles = attributes.get("altTitles", [])
     description = attributes.get("description", {}).get("en", "No description available")
@@ -95,23 +86,18 @@ def fetch_manga_details(manga_id):
     status = attributes.get("status", "Unknown").capitalize()
     tags = [tag["attributes"]["name"].get("en", "Unknown") for tag in attributes.get("tags", [])]
     
-    # Extract relationships
     authors = [rel["attributes"]["name"] for rel in data.get("relationships", []) if rel["type"] == "author"]
     artists = [rel["attributes"]["name"] for rel in data.get("relationships", []) if rel["type"] == "artist"]
     
-    # Extract cover image
     cover = next((rel for rel in data.get("relationships", []) if rel["type"] == "cover_art"), {})
     cover_url = f"https://uploads.mangadex.org/covers/{manga_id}/{cover.get('attributes', {}).get('fileName', '')}"
     
-    # Fetch all chapters
     chapters = fetch_all_chapters(manga_id)
     
-    # Add read and buy links
     read_link = f"https://mangadex.org/title/{manga_id}"
     buy_link = f"https://www.amazon.com/s?k={title.replace(' ', '+')}+manga"
     
-    # Construct manga data
-    manga_data = {
+    return {
         "id": manga_id,
         "title": title,
         "alternative_titles": alternative_titles,
@@ -127,36 +113,29 @@ def fetch_manga_details(manga_id):
         "buy_link": buy_link,
         "created_at": datetime.utcnow().isoformat()
     }
-    
-    time.sleep(RATE_LIMIT_DELAY)  # Prevent rate limiting
-    return manga_data
 
 def insert_into_supabase(manga_data, existing_manga_ids):
-    """Insert manga details into Supabase, skipping existing ones."""
+    """Insert manga details into Supabase."""
     if manga_data["id"] in existing_manga_ids:
-        print(f"⏭️ Skipping existing manga: {manga_data['title']}")
         return
     
-    response = supabase.table("manga").upsert(manga_data).execute()  # Use upsert instead of insert
-    print(f"✅ Inserted/Updated in Supabase: {manga_data['title']}")
-    
-    # Update existing IDs to prevent duplicate insert attempts
+    response = supabase.table("manga").upsert(manga_data).execute()
+    print(f"✅ Inserted/Updated: {manga_data['title']}")
     existing_manga_ids.add(manga_data["id"])
-    
-    time.sleep(5)  # Prevent rate limit
+    time.sleep(5)
 
 def main():
     existing_manga_ids = fetch_existing_manga_ids()
     manga_ids = fetch_all_manga()
-    new_manga_ids = [m_id for m_id in manga_ids if m_id not in existing_manga_ids]  # Skip existing manga
-    
+    new_manga_ids = [m_id for m_id in manga_ids if m_id not in existing_manga_ids]
+
     for i in range(0, len(new_manga_ids), BATCH_SIZE):
         batch = new_manga_ids[i:i + BATCH_SIZE]
         for manga_id in batch:
             manga_data = fetch_manga_details(manga_id)
             if manga_data:
                 insert_into_supabase(manga_data, existing_manga_ids)
-        time.sleep(120)  # Longer pause after processing a batch
+        time.sleep(120)
 
 if __name__ == "__main__":
     main()
