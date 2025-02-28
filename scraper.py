@@ -51,7 +51,10 @@ def fetch_all_manga():
     # Load cache and Supabase data
     cache_data = load_cache()
     if isinstance(cache_data, list):  # If empty or invalid, reset cache
-    cache_data = {"last_fetched_manga": []}
+    cache_data = {"last_fetched_manga": []}  # This line is properly indented
+
+cached_manga_ids = set(cache_data.get("last_fetched_manga", []))  # No indentation issue
+
 
 cached_manga_ids = set(cache_data.get("last_fetched_manga", []))
 
