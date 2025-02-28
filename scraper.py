@@ -50,7 +50,11 @@ def fetch_all_manga():
 
     # Load cache and Supabase data
     cache_data = load_cache()
-    cached_manga_ids = set(cache_data["last_fetched_manga"])
+    if isinstance(cache_data, list):  # If empty or invalid, reset cache
+    cache_data = {"last_fetched_manga": []}
+
+cached_manga_ids = set(cache_data.get("last_fetched_manga", []))
+
     existing_manga_ids = fetch_existing_manga_ids()
 
     while url and len(manga_list) < MAX_MANGA_PER_RUN:
