@@ -25,7 +25,7 @@ def fetch_existing_manga_ids():
 
 def fetch_all_manga():
     """Fetch all manga IDs with pagination."""
-    url = f"{BASE_URL}/manga?limit=500&order[updatedAt]=desc"  # Fetch updated manga
+    url = f"{BASE_URL}/manga?limit=100&order[updatedAt]=desc"  # Fetch updated manga
     manga_list = []
     
     while url and len(manga_list) < MAX_MANGA_PER_RUN:
