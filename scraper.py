@@ -18,7 +18,7 @@ MAX_MANGA_PER_RUN = 250  # Limits total manga fetched per run
 def fetch_existing_manga_ids():
     """Fetch existing manga IDs from Supabase to avoid duplicates."""
     response = supabase.table("new_manga").select("id").execute()
-    if response and response.data:
+    if response.data:
         return {entry["id"] for entry in response.data}
     return set()
 
@@ -47,36 +47,13 @@ def fetch_manga_details(manga_id):
     
     data = response.json().get("data", {})
     attributes = data.get("attributes", {})
-    
     title = attributes.get("title", {}).get("en", "Unknown")
-    alternative_titles = attributes.get("altTitles", [])
     description = attributes.get("description", {}).get("en", "No description available")
-    year = attributes.get("year")
-    status = attributes.get("status", "Unknown").capitalize()
-    tags = [tag["attributes"]["name"].get("en", "Unknown") for tag in attributes.get("tags", [])]
-    
-    authors = [rel["attributes"]["name"] for rel in data.get("relationships", []) if rel["type"] == "author"]
-    artists = [rel["attributes"]["name"] for rel in data.get("relationships", []) if rel["type"] == "artist"]
-    
-    cover = next((rel for rel in data.get("relationships", []) if rel["type"] == "cover_art"), {})
-    cover_url = f"https://uploads.mangadex.org/covers/{manga_id}/{cover.get('attributes', {}).get('fileName', '')}"
-    
-    read_link = f"https://mangadex.org/title/{manga_id}"
-    buy_link = f"https://www.amazon.com/s?k={title.replace(' ', '+')}+manga"
     
     manga_data = {
         "id": manga_id,
         "title": title,
-        "alternative_titles": alternative_titles,
         "description": description,
-        "year": year,
-        "status": status,
-        "tags": tags,
-        "authors": authors,
-        "artists": artists,
-        "cover_url": cover_url,
-        "read_link": read_link,
-        "buy_link": buy_link,
         "created_at": datetime.utcnow().isoformat()
     }
     
@@ -84,12 +61,15 @@ def fetch_manga_details(manga_id):
     return manga_data
 
 def insert_into_supabase(manga_data):
-    """Insert manga details into Supabase while skipping existing ones."""
-    try:
-        response = supabase.table("new_manga").insert(manga_data).execute()
-        print(f"Inserted into Supabase: {manga_data['id']}")
-    except Exception as e:
-        print(f"Skipping existing manga {manga_data['id']}: {e}")
+    """Insert manga details into Supabase only if not exists."""
+    existing_ids = fetch_existing_manga_ids()
+    if manga_data["id"] in existing_ids:
+        print(f"Skipping existing manga ID: {manga_data['id']}")
+        return
+    
+    response = supabase.table("new_manga").insert(manga_data).execute()
+    print(f"Inserted into Supabase: {response}")
+    time.sleep(RATE_LIMIT_DELAY)
 
 def main():
     existing_manga_ids = fetch_existing_manga_ids()
