@@ -17,7 +17,7 @@ MAX_MANGA_PER_RUN = 250  # Limits total manga fetched per run
 
 def fetch_existing_manga_ids():
     """Fetch existing manga IDs from Supabase to avoid duplicates."""
-    response = supabase.table("manga").select("id").execute()
+    response = supabase.table("new_manga").select("id").execute()
     if response and response.data:
         return {entry["id"] for entry in response.data}
     return set()
@@ -126,7 +126,7 @@ def insert_into_supabase(manga_data):
     manga_id = manga_data["id"]
     
     # Check if manga ID already exists in Supabase
-    existing = supabase.table("manga").select("id").eq("id", manga_id).execute()
+    existing = supabase.table("new_manga").select("id").eq("id", manga_id).execute()
     
     if existing.data:  # If the manga already exists, skip it
         print(f"Skipping existing manga ID: {manga_id}")
