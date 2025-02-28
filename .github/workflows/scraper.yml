@@ -3,7 +3,7 @@ name: MangaDex Fetcher
 on:
   schedule:
     - cron: "0 */2 * * *"  # Runs every 2 hours
-  workflow_dispatch:  # Allows manual trigger
+  workflow_dispatch:
 
 jobs:
   fetch_manga:
@@ -24,7 +24,4 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run MangaDex Fetcher
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python scraper.py
