@@ -2,32 +2,38 @@ name: Update Manga Cache
 
 on:
   schedule:
-    - cron: "0 * * * *"  # Runs every hour
-  workflow_dispatch:  # Allows manual run
+    - cron: '0 * * * *'  # Runs every hour
+  workflow_dispatch:  # Allows manual trigger
 
 jobs:
   update-cache:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: '3.x'
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests supabase
 
-      - name: Run script to update manga cache
-        run: python update_cache.py  # This runs the Python script
+      - name: Run update script
+        run: python update_cache.py
 
-      - name: Commit and push changes
+      - name: Check Git status
+        run: git status  # Debugging: Shows if changes exist
+
+      - name: Configure Git
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
+
+      - name: Commit and push changes
+        run: |
           git add manga_cache.json
-          git commit -m "Updated manga_cache.json"
-          git push
-        continue-on-error: true  # Prevent failure if no update
+          git diff --cached --quiet || (git commit -m "Updated manga_cache.json" && git push)
+        continue-on-error: true
