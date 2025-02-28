@@ -18,9 +18,12 @@ MAX_MANGA_PER_RUN = 250  # Limits total manga fetched per run
 def fetch_existing_manga_ids():
     """Fetch existing manga IDs from Supabase to avoid duplicates."""
     response = supabase.table("manga").select("id").execute()
-    if response.data:
-        return {entry["id"] for entry in response.data}  # Return as a set for quick lookup
-    return set()
+    
+    if response.data and isinstance(response.data, list):  # Ensure response is valid
+        return {entry["id"] for entry in response.data}  # Convert to a set for quick lookup
+    else:
+        print("⚠️ Warning: Failed to fetch existing manga IDs from Supabase!")
+        return set()
 
 def fetch_all_manga():
     """Fetch all manga IDs with pagination."""
@@ -93,12 +96,16 @@ def insert_into_supabase(manga_data, existing_manga_ids):
     manga_id = manga_data["id"]
 
     if manga_id in existing_manga_ids:
-        print(f"Skipping existing manga: {manga_data['title']} ({manga_id})")
+        print(f"✅ Skipping existing manga: {manga_data['title']} ({manga_id})")
         return  # Skip existing manga
     
-    response = supabase.table("manga").insert(manga_data).execute()
-    print(f"Inserted into Supabase: {manga_data['title']} ({manga_id})")
-    time.sleep(RATE_LIMIT_DELAY)
+    try:
+        response = supabase.table("manga").insert(manga_data).execute()
+        print(f"✅ Inserted into Supabase: {manga_data['title']} ({manga_id})")
+        time.sleep(RATE_LIMIT_DELAY)
+    except Exception as e:
+        print(f"⚠️ Error inserting {manga_id}: {e}")
+
 
 def main():
     existing_manga_ids = fetch_existing_manga_ids()
