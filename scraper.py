@@ -123,7 +123,12 @@ def fetch_manga_details(manga_id):
 
 def insert_into_supabase(manga_data):
     """Insert manga details into Supabase."""
-    response = supabase.table("new_manga").upsert(manga_data).execute()
+    try:
+    response = supabase.table("new_manga").insert(manga_data).execute()
+    print(f"Inserted into Supabase: {response}")
+except Exception as e:
+    print(f"Skipping existing manga {manga_data['id']}: {e}")
+
     print(f"Inserted into Supabase: {response}")
     time.sleep(RATE_LIMIT_DELAY)
 
