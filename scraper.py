@@ -6,7 +6,7 @@ from supabase import create_client
 
 # 🔹 Supabase credentials
 SUPABASE_URL = "https://cbdkiyruretigoldouhf.supabase.co"
-SUPABASE_KEY = "your_supabase_service_role_key"  # Keep this secret
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNiZGtpeXJ1cmV0aWdvbGRvdWhmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczODU2NDc5OSwiZXhwIjoyMDU0MTQwNzk5fQ.NqeVS9WSjeGYjAM52XRXOS_FTjgE8uyTM4yDmkqSy5I"  # Keep this secret
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
