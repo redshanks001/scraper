@@ -39,7 +39,7 @@ def save_cache(manga_ids):
 # ✅ Fetch Existing Manga IDs from Supabase
 def fetch_existing_manga_ids():
     """Fetch existing manga IDs from Supabase to avoid duplicates."""
-    response = supabase.table("manga").select("id").execute()
+    response = supabase.table("manga_columns_only").select("id").execute()
     if response and response.data:
         return {entry["id"] for entry in response.data}
     return set()
@@ -126,7 +126,7 @@ def insert_into_supabase(manga_data, existing_manga_ids):
         print(f"⏭️ Skipping existing manga: {manga_data['title']}")
         return
 
-    response = supabase.table("manga").upsert(manga_data).execute()
+    response = supabase.table("manga_columns_only").upsert(manga_data).execute()
     print(f"✅ Inserted/Updated in Supabase: {manga_data['title']}")
 
     existing_manga_ids.add(manga_data["id"])
