@@ -2,7 +2,7 @@ name: Update Manga Cache
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Runs every hour
+    - cron: ''  # Runs every hour
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
