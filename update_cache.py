@@ -47,7 +47,7 @@ def update_manga_cache():
         print(f"🆕 New manga IDs detected: {new_ids}")
         cache["last_fetched_manga"].extend(new_ids)  # Append new IDs
 
-        # Save updated cache
+        # Save updated cache with correct JSON format
         with open(cache_file, "w") as f:
             json.dump(cache, f, indent=2)
         print("✅ manga_cache.json updated!")
