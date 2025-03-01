@@ -26,30 +26,30 @@ def fetch_manga_ids_from_supabase():
 def update_manga_cache():
     cache_file = "manga_cache.json"
 
-    # Load existing cache (as a list)
+    # Load existing cache (as a dictionary)
     try:
         with open(cache_file, "r") as f:
             cache = json.load(f)
         
-        # Ensure cache is a list, not a dictionary
-        if not isinstance(cache, list):
-            cache = []
+        # Ensure cache is a dictionary with the correct key
+        if not isinstance(cache, dict) or "last_fetched_manga" not in cache:
+            cache = {"last_fetched_manga": []}
     except (FileNotFoundError, json.JSONDecodeError):
-        cache = []  # Initialize empty list if the file is missing
+        cache = {"last_fetched_manga": []}  # Initialize if missing
 
     # Fetch manga IDs from Supabase
     manga_ids = fetch_manga_ids_from_supabase()
 
     # Check for new IDs
-    new_ids = [manga_id for manga_id in manga_ids if manga_id not in cache]
+    new_ids = [manga_id for manga_id in manga_ids if manga_id not in cache["last_fetched_manga"]]
 
     if new_ids:
         print(f"🆕 New manga IDs detected: {new_ids}")
-        cache.extend(new_ids)  # Append new IDs
+        cache["last_fetched_manga"].extend(new_ids)  # Append new IDs
 
         # Save updated cache
         with open(cache_file, "w") as f:
-            json.dump(cache, f, indent=4)
+            json.dump(cache, f, indent=2)
         print("✅ manga_cache.json updated!")
 
 # Run the function to check for new manga IDs and update the cache
