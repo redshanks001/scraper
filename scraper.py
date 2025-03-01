@@ -135,21 +135,40 @@ def insert_into_supabase(manga_data, existing_manga_ids):
 # ✅ Main Function
 def main():
     existing_manga_ids = fetch_existing_manga_ids()
-    manga_ids = fetch_all_manga()
+    cache_data = load_cache()
+    cached_manga_ids = set(cache_data.get("last_fetched_manga", []))
+    
+    new_manga_added = 0
+    manga_ids = []
 
-    for i in range(0, len(manga_ids), BATCH_SIZE):
-        batch = manga_ids[i:i + BATCH_SIZE]
-        for manga_id in batch:
-            if manga_id in existing_manga_ids:
-                print(f"⏭️ Skipping existing manga: {manga_id}")
+    print(f"📝 Cached Manga: {len(cached_manga_ids)}")
+    print(f"📝 Existing Manga in Supabase: {len(existing_manga_ids)}")
+
+    # Keep fetching until at least 50 new manga are added
+    while new_manga_added < 50:
+        fresh_manga_ids = fetch_all_manga()
+        
+        for manga_id in fresh_manga_ids:
+            if manga_id in cached_manga_ids or manga_id in existing_manga_ids:
+                print(f"⏭️ Skipping already processed manga: {manga_id}")
                 continue
-
+            
             manga_data = fetch_manga_details(manga_id)
             if manga_data:
                 insert_into_supabase(manga_data, existing_manga_ids)
+                cached_manga_ids.add(manga_id)
+                new_manga_added += 1
+                print(f"✅ Added {new_manga_added}/50 manga to Supabase")
 
-        save_cache(manga_ids)
-        time.sleep(120)
+            if new_manga_added >= 50:
+                break  # Stop when 50 new manga are added
+        
+        save_cache(list(cached_manga_ids))  # Update cache file
+        if new_manga_added < 50:
+            print("🔄 Fetching more manga...")
+            time.sleep(60)  # Wait before fetching the next batch
+
+    print("🎉 Successfully added 50 new manga!")
 
 if __name__ == "__main__":
     main()
